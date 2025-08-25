@@ -5,10 +5,35 @@ $(document).ready(function() {
         return;
     }
     
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js库未加载');
-        // 显示警告信息
-        $('body').prepend('<div class="alert alert-warning alert-dismissible fade show" role="alert">Chart.js库加载失败，图表功能可能不可用。<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+    // 改进Chart.js加载检测
+    function checkChartJs() {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js库未加载，尝试重新加载...');
+            // 动态加载Chart.js
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.onload = function() {
+                console.log('Chart.js加载成功');
+                // 移除警告信息
+                $('.alert-warning').remove();
+            };
+            script.onerror = function() {
+                console.error('Chart.js加载失败');
+                // 显示警告信息
+                if ($('.alert-warning').length === 0) {
+                    $('body').prepend('<div class="alert alert-warning alert-dismissible fade show" role="alert">Chart.js库加载失败，图表功能可能不可用。<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                }
+            };
+            document.head.appendChild(script);
+            return false;
+        }
+        return true;
+    }
+    
+    // 初始检查
+    if (!checkChartJs()) {
+        // 如果Chart.js未加载，等待一段时间后再次检查
+        setTimeout(checkChartJs, 1000);
     }
     
     // DOM元素
@@ -228,7 +253,20 @@ $(document).ready(function() {
     function createChart(nldftData) {
         // 检查Chart.js是否已加载
         if (typeof Chart === 'undefined') {
-            console.error('Chart.js库未加载');
+            console.error('Chart.js库未加载，尝试重新加载...');
+            checkChartJs();
+            // 延迟创建图表
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    createChart(nldftData);
+                } else {
+                    console.error('Chart.js加载失败，无法创建图表');
+                    const chartContainer = document.querySelector('#chart .chart-container');
+                    if (chartContainer) {
+                        chartContainer.innerHTML = '<div class="alert alert-warning">图表加载失败，请刷新页面重试</div>';
+                    }
+                }
+            }, 2000);
             return;
         }
         

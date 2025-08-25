@@ -11,7 +11,7 @@ from app.api.routes import router as api_router
 # 加载环境变量
 load_dotenv()
 
-app = FastAPI(title="PDF孔径分析工具")
+app = FastAPI(title="dBrother - 孔径报告分析工具")
 
 # 配置CORS
 app.add_middleware(

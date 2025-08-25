@@ -1,5 +1,5 @@
 :root {
-    --primary-color: #3498db;
+    --primary-color: #4ebac7;
     --secondary-color: #2ecc71;
     --danger-color: #e74c3c;
     --light-gray: #f8f9fa;
@@ -146,8 +146,65 @@ body {
 }
 
 .btn-primary:hover {
-    background-color: #2980b9;
-    border-color: #2980b9;
+    background-color: #3da8b3;
+    border-color: #3da8b3;
+}
+
+/* 关于按钮样式 */
+.about-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    border: none;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(78, 186, 199, 0.3);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.about-btn:hover {
+    background-color: #3da8b3;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(78, 186, 199, 0.4);
+    color: white;
+}
+
+/* 模态框样式 */
+.modal-header {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+.about-content {
+    line-height: 1.6;
+}
+
+.about-content h5 {
+    color: var(--primary-color);
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.about-content .author-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.about-content .thanks-section {
+    border-left: 4px solid var(--primary-color);
+    padding-left: 15px;
+    margin: 15px 0;
 }
 
 /* 表格样式 */
