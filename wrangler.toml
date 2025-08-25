@@ -1,4 +1,4 @@
-name = "dBrother"
+name = "dbrother"
 main = "app/main.py"          # 这里写你的入口文件相对路径
 compatibility_date = "2025-08-15"
 compatibility_flags = ["python_workers"]
