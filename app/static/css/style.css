@@ -153,25 +153,39 @@ body {
 /* 关于按钮样式 */
 .about-btn {
     position: fixed;
-    bottom: 20px;
+    top: 20px;
     right: 20px;
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     background-color: var(--primary-color);
     border: none;
     color: white;
-    font-size: 24px;
-    box-shadow: 0 4px 12px rgba(78, 186, 199, 0.3);
+    font-size: 28px;
+    box-shadow: 0 6px 20px rgba(78, 186, 199, 0.4);
     transition: all 0.3s ease;
     z-index: 1000;
+    animation: pulse 2s infinite;
 }
 
 .about-btn:hover {
     background-color: #3da8b3;
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(78, 186, 199, 0.4);
+    transform: scale(1.15);
+    box-shadow: 0 8px 25px rgba(78, 186, 199, 0.5);
     color: white;
+    animation: none;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 6px 20px rgba(78, 186, 199, 0.4);
+    }
+    50% {
+        box-shadow: 0 6px 20px rgba(78, 186, 199, 0.7);
+    }
+    100% {
+        box-shadow: 0 6px 20px rgba(78, 186, 199, 0.4);
+    }
 }
 
 /* 模态框样式 */

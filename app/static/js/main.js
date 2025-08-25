@@ -1,9 +1,13 @@
 $(document).ready(function() {
+    console.log('页面DOM加载完成，开始初始化...');
+    
     // 检查必要的库是否已加载
     if (typeof $ === 'undefined') {
         console.error('jQuery库未加载');
         return;
     }
+    
+    console.log('jQuery库已加载，版本:', $.fn.jquery);
     
     // 改进Chart.js加载检测
     function checkChartJs() {
@@ -47,6 +51,15 @@ $(document).ready(function() {
     const loadingOverlay = $('#loadingOverlay');
     const downloadCsvBtn = $('#downloadCsvBtn');
     
+    // 检查关键DOM元素是否存在
+    console.log('DOM元素检查:');
+    console.log('uploadArea:', uploadArea.length > 0 ? '找到' : '未找到');
+    console.log('fileInput:', fileInput.length > 0 ? '找到' : '未找到');
+    console.log('uploadProgress:', uploadProgress.length > 0 ? '找到' : '未找到');
+    console.log('errorAlert:', errorAlert.length > 0 ? '找到' : '未找到');
+    console.log('resultCard:', resultCard.length > 0 ? '找到' : '未找到');
+    console.log('loadingOverlay:', loadingOverlay.length > 0 ? '找到' : '未找到');
+    
     // 全局变量
     let analysisData = null;
     let chart = null;
@@ -75,12 +88,8 @@ $(document).ready(function() {
         }
     });
     
-    // 点击上传区域触发文件选择 - 修复无限递归问题
+    // 点击上传区域触发文件选择 - 修复事件处理
     uploadArea.on('click', function(e) {
-        // 阻止事件冒泡，避免触发其他事件处理器
-        e.preventDefault();
-        e.stopPropagation();
-        
         // 检查点击是否在label元素上，如果是则不触发文件选择
         if ($(e.target).is('label') || $(e.target).closest('label').length > 0) {
             return;
@@ -91,23 +100,33 @@ $(document).ready(function() {
             return;
         }
         
-        // 使用setTimeout避免立即触发，给其他事件处理器时间完成
-        setTimeout(function() {
-            fileInput.trigger('click');
-        }, 10);
+        // 检查点击是否在input元素上，如果是则不触发文件选择
+        if ($(e.target).is('input') || $(e.target).closest('input').length > 0) {
+            return;
+        }
+        
+        // 触发文件选择
+        fileInput.trigger('click');
     });
     
     // 文件选择变更
-    fileInput.on('change', function() {
-        if (this.files.length > 0) {
+    fileInput.on('change', function(e) {
+        console.log('文件选择变更事件触发');
+        if (this.files && this.files.length > 0) {
+            console.log('选择的文件:', this.files[0].name);
             handleFile(this.files[0]);
+        } else {
+            console.log('没有选择文件');
         }
     });
     
     // 处理选择的文件
     function handleFile(file) {
+        console.log('开始处理文件:', file.name, '大小:', file.size, '类型:', file.type);
+        
         // 检查文件类型
         if (!file.type.match('application/pdf')) {
+            console.error('文件类型不匹配:', file.type);
             showError('只接受PDF文件');
             return;
         }
@@ -115,6 +134,7 @@ $(document).ready(function() {
         // 检查文件大小 (2MB限制)
         const maxSize = 2 * 1024 * 1024; // 2MB
         if (file.size > maxSize) {
+            console.error('文件过大:', file.size);
             showError('文件大小不能超过2MB');
             return;
         }
@@ -133,6 +153,8 @@ $(document).ready(function() {
         // 显示加载遮罩
         loadingOverlay.removeClass('d-none');
         
+        console.log('开始上传文件到服务器...');
+        
         // 发送AJAX请求
         $.ajax({
             url: '/api/analyze',
@@ -147,11 +169,13 @@ $(document).ready(function() {
                         const percent = Math.round((e.loaded / e.total) * 100);
                         progressBar.css('width', percent + '%');
                         progressBar.attr('aria-valuenow', percent);
+                        console.log('上传进度:', percent + '%');
                     }
                 }, false);
                 return xhr;
             },
             success: function(response) {
+                console.log('服务器响应成功:', response);
                 // 隐藏加载遮罩
                 loadingOverlay.addClass('d-none');
                 
@@ -169,6 +193,10 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr, status, error) {
+                console.error('AJAX请求失败:', status, error);
+                console.error('响应状态:', xhr.status);
+                console.error('响应文本:', xhr.responseText);
+                
                 // 隐藏加载遮罩
                 loadingOverlay.addClass('d-none');
                 
