@@ -90,3 +90,4 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
         # 确保出错时也删除临时文件
         background_tasks.add_task(remove_file, file_path)
         raise HTTPException(status_code=500, detail=f"处理文件时出错: {str(e)}")
+
