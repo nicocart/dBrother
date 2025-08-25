@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF孔径分析工具</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="text-center my-4">
+            <h1 class="display-4">PDF孔径分析工具</h1>
+            <p class="lead">上传PDF文件，自动提取孔径分析数据</p>
+        </header>
+
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon">
+                                <i class="bi bi-file-earmark-pdf fs-1"></i>
+                            </div>
+                            <h3>拖放文件到此处</h3>
+                            <p>或者</p>
+                            <label for="fileInput" class="btn btn-primary">选择文件</label>
+                            <input type="file" id="fileInput" accept=".pdf" hidden>
+                            <p class="text-muted mt-2">最大文件大小: 2MB</p>
+                        </div>
+
+                        <div class="progress mt-3 d-none" id="uploadProgress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+
+                        <div class="alert alert-danger mt-3 d-none" id="errorAlert">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span id="errorMessage"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 结果卡片 -->
+                <div class="card shadow-sm mt-4 d-none" id="resultCard">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-check-circle-fill"></i> 分析完成</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">基本数据</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab">高级分析</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart" type="button" role="tab">图表</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">原始数据</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content p-3" id="resultTabsContent">
+                            <!-- 基本数据标签页 -->
+                            <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">单点BET比表面积</div>
+                                            <div class="data-value" id="spBet">-</div>
+                                            <div class="data-unit">m²/g</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">多点BET比表面积</div>
+                                            <div class="data-value" id="mpBet">-</div>
+                                            <div class="data-unit">m²/g</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">最高单点吸附总孔体积</div>
+                                            <div class="data-value" id="totalPoreVol">-</div>
+                                            <div class="data-unit">cm³/g</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">单点总孔吸附平均孔直径</div>
+                                            <div class="data-value" id="avgPoreD">-</div>
+                                            <div class="data-unit">nm</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">最可几孔径</div>
+                                            <div class="data-value" id="mostProbable">-</div>
+                                            <div class="data-unit">nm</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">D90/D10比值</div>
+                                            <div class="data-value" id="d90d10Ratio">-</div>
+                                            <div class="data-unit"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 高级分析标签页 -->
+                            <div class="tab-pane fade" id="advanced" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">D10</div>
+                                            <div class="data-value" id="d10">-</div>
+                                            <div class="data-unit">nm</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">D90</div>
+                                            <div class="data-value" id="d90">-</div>
+                                            <div class="data-unit">nm</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">孔容A（最大孔积分体积）</div>
+                                            <div class="data-value" id="poreVolumeA">-</div>
+                                            <div class="data-unit">cm³/g</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">0.5D（最可几孔径×0.5）</div>
+                                            <div class="data-value" id="d05">-</div>
+                                            <div class="data-unit">nm</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">＜0.5D的百分比</div>
+                                            <div class="data-value" id="lessThan05D">-</div>
+                                            <div class="data-unit">%</div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">＞1.5D的百分比</div>
+                                            <div class="data-value" id="greaterThan15D">-</div>
+                                            <div class="data-unit">%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 图表标签页 -->
+                            <div class="tab-pane fade" id="chart" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="nldftChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- 原始数据标签页 -->
+                            <div class="tab-pane fade" id="data" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>序号</th>
+                                                <th>平均孔直径 (nm)</th>
+                                                <th>孔积分体积 (cm³/g)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="nldftTableBody">
+                                            <!-- 数据将通过JS动态填充 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-outline-primary" id="downloadCsvBtn">
+                                        <i class="bi bi-download"></i> 下载CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-5 mb-3">
+            <p class="text-muted">© 2024 PDF孔径分析工具 | 使用 FastAPI 和 pdfminer.six 构建</p>
+        </footer>
+    </div>
+
+    <!-- 加载中遮罩 -->
+    <div class="loading-overlay d-none" id="loadingOverlay">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+        <div class="mt-2 text-light">正在分析PDF文件，请稍候...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+</body>
+</html>
