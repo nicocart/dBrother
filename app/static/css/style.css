@@ -153,7 +153,7 @@ body {
 /* 关于按钮样式 */
 .about-btn {
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
     width: 70px;
     height: 70px;
