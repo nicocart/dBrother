@@ -193,6 +193,18 @@
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+    
+    <!-- 调试脚本 -->
+    <script>
+        // 检查库加载状态
+        window.addEventListener('load', function() {
+            console.log('页面加载完成');
+            console.log('jQuery版本:', typeof $ !== 'undefined' ? $.fn.jquery : '未加载');
+            console.log('Chart.js版本:', typeof Chart !== 'undefined' ? Chart.version : '未加载');
+            console.log('Bootstrap版本:', typeof bootstrap !== 'undefined' ? '已加载' : '未加载');
+        });
+    </script>
+    
     <script src="{{ url_for('static', path='/js/main.js') }}"></script>
 </body>
 </html>

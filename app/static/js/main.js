@@ -1,4 +1,16 @@
 $(document).ready(function() {
+    // 检查必要的库是否已加载
+    if (typeof $ === 'undefined') {
+        console.error('jQuery库未加载');
+        return;
+    }
+    
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js库未加载');
+        // 显示警告信息
+        $('body').prepend('<div class="alert alert-warning alert-dismissible fade show" role="alert">Chart.js库加载失败，图表功能可能不可用。<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+    }
+    
     // DOM元素
     const uploadArea = $('#uploadArea');
     const fileInput = $('#fileInput');
@@ -38,9 +50,26 @@ $(document).ready(function() {
         }
     });
     
-    // 点击上传区域触发文件选择
-    uploadArea.on('click', function() {
-        fileInput.click();
+    // 点击上传区域触发文件选择 - 修复无限递归问题
+    uploadArea.on('click', function(e) {
+        // 阻止事件冒泡，避免触发其他事件处理器
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // 检查点击是否在label元素上，如果是则不触发文件选择
+        if ($(e.target).is('label') || $(e.target).closest('label').length > 0) {
+            return;
+        }
+        
+        // 检查点击是否在按钮上，如果是则不触发文件选择
+        if ($(e.target).is('button') || $(e.target).closest('button').length > 0) {
+            return;
+        }
+        
+        // 使用setTimeout避免立即触发，给其他事件处理器时间完成
+        setTimeout(function() {
+            fileInput.trigger('click');
+        }, 10);
     });
     
     // 文件选择变更
@@ -179,14 +208,37 @@ $(document).ready(function() {
                 `);
             });
             
-            // 创建图表
-            createChart(data.nldft_data);
+            // 创建图表 - 添加错误处理
+            try {
+                createChart(data.nldft_data);
+            } catch (error) {
+                console.error('创建图表时出错:', error);
+                // 在图表区域显示错误信息
+                const chartContainer = document.querySelector('#chart .chart-container');
+                if (chartContainer) {
+                    chartContainer.innerHTML = '<div class="alert alert-warning">图表加载失败，请刷新页面重试</div>';
+                }
+            }
+        } else {
+            console.warn('没有NLDFT数据可用于创建图表');
         }
     }
     
     // 创建图表
     function createChart(nldftData) {
-        const ctx = document.getElementById('nldftChart').getContext('2d');
+        // 检查Chart.js是否已加载
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js库未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('nldftChart');
+        if (!ctx) {
+            console.error('找不到图表画布元素');
+            return;
+        }
+        
+        const canvas = ctx.getContext('2d');
         
         // 如果已有图表，销毁它
         if (chart) {
@@ -198,7 +250,7 @@ $(document).ready(function() {
         const volumes = nldftData.map(item => item.pore_integral_volume);
         
         // 创建新图表
-        chart = new Chart(ctx, {
+        chart = new Chart(canvas, {
             type: 'line',
             data: {
                 labels: labels,
