@@ -248,3 +248,31 @@ body {
     background-color: var(--primary-color);
 }
 
+/* 统计徽章样式 */
+.stats-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 10px;
+    box-shadow: 0 2px 8px rgba(78, 186, 199, 0.3);
+    transition: all 0.3s ease;
+}
+
+.stats-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(78, 186, 199, 0.4);
+}
+
+.stats-badge i {
+    margin-right: 5px;
+}
+
+.stats-badge #totalAnalysisCount {
+    font-weight: bold;
+    color: #fff;
+}
+

@@ -64,6 +64,23 @@ $(document).ready(function() {
     let analysisData = null;
     let chart = null;
     
+    // 页面加载时获取统计信息
+    function loadStats() {
+        $.ajax({
+            url: '/api/stats',
+            type: 'GET',
+            success: function(response) {
+                $('#totalAnalysisCount').text(response.total_analysis_count);
+            },
+            error: function(xhr, status, error) {
+                console.error('获取统计信息失败:', error);
+            }
+        });
+    }
+    
+    // 页面加载时获取统计信息
+    loadStats();
+    
     // 拖放文件处理
     uploadArea.on('dragover', function(e) {
         e.preventDefault();
@@ -185,6 +202,11 @@ $(document).ready(function() {
                     
                     // 显示结果
                     displayResults(analysisData);
+                    
+                    // 更新计数器显示
+                    if (response.total_analysis_count !== undefined) {
+                        $('#totalAnalysisCount').text(response.total_analysis_count);
+                    }
                     
                     // 显示结果卡片
                     resultCard.removeClass('d-none');
