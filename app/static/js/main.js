@@ -64,42 +64,6 @@ $(document).ready(function() {
     let analysisData = null;
     let chart = null;
     
-    // 页面加载时获取统计信息
-    function loadStats() {
-        $.ajax({
-            url: '/api/stats',
-            type: 'GET',
-            success: function(response) {
-                $('#totalAnalysisCount').text(response.total_analysis_count);
-                // 格式化CPU时间显示
-                const cpuTime = response.cpu_time_seconds || 0;
-                const formattedCpuTime = formatCpuTime(cpuTime);
-                $('#cpuTime').text(formattedCpuTime);
-            },
-            error: function(xhr, status, error) {
-                console.error('获取统计信息失败:', error);
-            }
-        });
-    }
-    
-    // 格式化CPU时间显示
-    function formatCpuTime(seconds) {
-        if (seconds < 60) {
-            return seconds.toFixed(1);
-        } else if (seconds < 3600) {
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
-        } else {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            return `${hours}h ${minutes}m`;
-        }
-    }
-    
-    // 页面加载时获取统计信息
-    loadStats();
-    
     // 拖放文件处理
     uploadArea.on('dragover', function(e) {
         e.preventDefault();
@@ -222,16 +186,7 @@ $(document).ready(function() {
                     // 显示结果
                     displayResults(analysisData);
                     
-                    // 更新计数器显示
-                    if (response.total_analysis_count !== undefined) {
-                        $('#totalAnalysisCount').text(response.total_analysis_count);
-                    }
-                    
-                    // 更新CPU时间显示
-                    if (response.cpu_time_seconds !== undefined) {
-                        const formattedCpuTime = formatCpuTime(response.cpu_time_seconds);
-                        $('#cpuTime').text(formattedCpuTime);
-                    }
+
                     
                     // 显示结果卡片
                     resultCard.removeClass('d-none');
