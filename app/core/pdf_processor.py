@@ -38,11 +38,6 @@ class ProcessResult:
     d1_5: float = 0.0  # 1.5D（最可几孔径×1.5）
     volume_1_5D: float = 0.0  # 1.5D对应的体积
     greater_than_1_5D: float = 0.0  # ＞1.5D的百分比
-    # 新增样品信息字段
-    sample_name: str = ""  # 样品名称
-    instrument_model: str = ""  # 仪器型号
-    test_operator: str = ""  # 测试人员
-    test_date: str = ""  # 送检日期
 
     def __post_init__(self):
         if self.nldft_data is None:
@@ -78,20 +73,58 @@ def section_text(text: str, start_label: str, end_labels: List[str]) -> str:
 
 
 # ---------- 关键词数值提取 ----------
-def extract_value_near(text: str, keyword: str, unit_regex: str, window: int = 1000) -> str:
+def extract_value_near(text: str, keyword: str, unit_regex: str, window: int = 1000, reference_keyword: str = None) -> str:
     """
     在 keyword 附近（左右对称窗口）找"数字(单位)"并取最近者。
     支持科学计数、千分位；返回不带逗号的数字字符串。
+    
+    Args:
+        text: 要搜索的文本
+        keyword: 要搜索的关键词
+        unit_regex: 单位正则表达式
+        window: 搜索窗口大小
+        reference_keyword: 参考关键词，如果提供，优先选择靠近该关键词的结果
     """
     # 使用正则表达式进行精确匹配，避免匹配包含关键词的其他字符串
-    keyword_pattern = re.compile(rf'\b{re.escape(keyword)}\b')
-    match = keyword_pattern.search(text)
-    if not match:
+    keyword_pattern = re.compile(rf'{re.escape(keyword)}')
+    matches = list(keyword_pattern.finditer(text))
+    
+    if not matches:
         return ""
     
+    # 如果指定了参考关键词，优先选择靠近参考关键词的结果
+    if reference_keyword:
+        reference_pattern = re.compile(rf'{re.escape(reference_keyword)}')
+        reference_matches = list(reference_pattern.finditer(text))
+        
+        if reference_matches:
+            # 找到最靠近参考关键词的keyword匹配
+            best_match = None
+            min_distance = float('inf')
+            
+            for ref_match in reference_matches:
+                ref_pos = ref_match.start()
+                for kw_match in matches:
+                    kw_pos = kw_match.start()
+                    # 计算距离，但优先考虑在参考关键词之后的匹配
+                    distance = abs(kw_pos - ref_pos)
+                    # 如果关键词在参考关键词之后，给予距离奖励（减少距离值）
+                    if kw_pos > ref_pos:
+                        distance = distance * 0.5
+                    if distance < min_distance:
+                        min_distance = distance
+                        best_match = kw_match
+            
+            if best_match:
+                matches = [best_match]
+    
+    # 使用第一个匹配（如果指定了参考关键词，这里就是最靠近参考关键词的匹配）
+    match = matches[0]
     pos = match.start()
+    
+    # 使用较小的搜索窗口，只包含关键词附近的数值
     start = max(0, pos - window // 2)
-    end = min(len(text), pos + window)
+    end = min(len(text), pos + window // 2)
     segment = text[start:end]
     rel = pos - start
 
@@ -134,123 +167,6 @@ def extract_surface_area_map(text: str) -> Dict[str, str]:
         if i < len(labels):
             out[labels[i]] = v
     return out
-
-
-def extract_sample_info(text: str) -> Dict[str, str]:
-    """
-    提取样品信息：样品名称、仪器型号、测试人员、送检日期
-    """
-    info = {
-        "sample_name": "",
-        "instrument_model": "",
-        "test_operator": "",
-        "test_date": ""
-    }
-    
-    # 提取样品名称 - 通常在报告开头
-    sample_patterns = [
-        r"样品名称[：:]\s*([^\n\r]+)",
-        r"样品[：:]\s*([^\n\r]+)",
-        r"Sample[：:]\s*([^\n\r]+)",
-        r"Sample Name[：:]\s*([^\n\r]+)"
-    ]
-    
-    for pattern in sample_patterns:
-        match = re.search(pattern, text)
-        if match:
-            info["sample_name"] = match.group(1).strip()
-            break
-    
-    # 提取仪器型号
-    instrument_patterns = [
-        r"仪器型号[：:]\s*([^\n\r]+)",
-        r"设备型号[：:]\s*([^\n\r]+)",
-        r"Instrument[：:]\s*([^\n\r]+)",
-        r"Model[：:]\s*([^\n\r]+)"
-    ]
-    
-    for pattern in instrument_patterns:
-        match = re.search(pattern, text)
-        if match:
-            info["instrument_model"] = match.group(1).strip()
-            break
-    
-    # 提取测试人员
-    operator_patterns = [
-        r"测试人员[：:]\s*([^\n\r]+)",
-        r"操作员[：:]\s*([^\n\r]+)",
-        r"Operator[：:]\s*([^\n\r]+)",
-        r"Tested by[：:]\s*([^\n\r]+)"
-    ]
-    
-    for pattern in operator_patterns:
-        match = re.search(pattern, text)
-        if match:
-            info["test_operator"] = match.group(1).strip()
-            break
-    
-    # 提取送检日期
-    date_patterns = [
-        r"送检日期[：:]\s*([^\n\r]+)",
-        r"测试日期[：:]\s*([^\n\r]+)",
-        r"Date[：:]\s*([^\n\r]+)",
-        r"Test Date[：:]\s*([^\n\r]+)",
-        r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)"  # 匹配日期格式
-    ]
-    
-    for pattern in date_patterns:
-        match = re.search(pattern, text)
-        if match:
-            info["test_date"] = match.group(1).strip()
-            break
-    
-    return info
-
-
-def extract_most_probable_near_nldft(text: str) -> str:
-    """
-    优先提取靠近NLDFT数据的"最可几孔径"值
-    """
-    # 首先找到NLDFT相关区域
-    nldft_sections = []
-    
-    # 查找NLDFT相关的关键词位置
-    nldft_keywords = ["NLDFT详细数据", "NLDFT", "Non-local Density Functional Theory"]
-    
-    for keyword in nldft_keywords:
-        pos = text.find(keyword)
-        if pos != -1:
-            nldft_sections.append(pos)
-    
-    if not nldft_sections:
-        # 如果没有找到NLDFT，使用原来的方法
-        return extract_value_near(text, "最可几孔径", r"nm", 1000)
-    
-    # 在NLDFT区域附近查找最可几孔径
-    most_probable_pattern = re.compile(r"最可几孔径[：:]\s*([+-]?\d[\d,]*\.?\d*(?:[eE][+-]?\d+)?)\s*\(nm\)")
-    
-    best_match = None
-    min_distance = float('inf')
-    
-    for nldft_pos in nldft_sections:
-        # 在NLDFT位置前后2000字符范围内查找
-        start = max(0, nldft_pos - 2000)
-        end = min(len(text), nldft_pos + 2000)
-        section = text[start:end]
-        
-        for match in most_probable_pattern.finditer(section):
-            match_pos = start + match.start()
-            distance = abs(match_pos - nldft_pos)
-            
-            if distance < min_distance:
-                min_distance = distance
-                best_match = match.group(1).replace(",", "")
-    
-    if best_match:
-        return best_match
-    
-    # 如果没找到，使用原来的方法作为备选
-    return extract_value_near(text, "最可几孔径", r"nm", 1000)
 
 
 # ---------- NLDFT 表解析 ----------
@@ -379,9 +295,6 @@ def process_pdf(pdf_path: str) -> ProcessResult:
         if not text.strip():
             return ProcessResult(success=False, error_message="无法从PDF中提取文本内容")
         
-        # 提取样品信息
-        sample_info = extract_sample_info(text)
-        
         # 表面积（按节内顺序映射）
         sa_map = extract_surface_area_map(text)
         
@@ -391,7 +304,8 @@ def process_pdf(pdf_path: str) -> ProcessResult:
         # 其它标量（就近取）
         total_pore_vol = extract_value_near(text, "最高单点吸附总孔体积", r"cm\^3/g", 1000)
         avg_pore_d = extract_value_near(text, "单点总孔吸附平均孔直径", r"nm", 1000)
-        most_probable = extract_most_probable_near_nldft(text)
+        # 最可几孔径：优先选择靠近"NLDFT详细数据"的结果
+        most_probable = extract_value_near(text, "最可几孔径", r"nm", 200, "NLDFT详细数据")
 
         # NLDFT 表
         nldft = parse_nldft_pairs(text)
@@ -459,11 +373,7 @@ def process_pdf(pdf_path: str) -> ProcessResult:
             less_than_0_5D=less_than_0_5D,
             d1_5=d1_5,
             volume_1_5D=volume_1_5D,
-            greater_than_1_5D=greater_than_1_5D,
-            sample_name=sample_info["sample_name"],
-            instrument_model=sample_info["instrument_model"],
-            test_operator=sample_info["test_operator"],
-            test_date=sample_info["test_date"]
+            greater_than_1_5D=greater_than_1_5D
         )
 
     except Exception as e:

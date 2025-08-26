@@ -238,12 +238,6 @@ $(document).ready(function() {
         $('#mostProbable').text(data.most_probable || '-');
         $('#d90d10Ratio').text(data.d90_d10_ratio ? data.d90_d10_ratio.toFixed(4) : '-');
         
-        // 样品信息数据
-        $('#sampleName').text(data.sample_name || '-');
-        $('#instrumentModel').text(data.instrument_model || '-');
-        $('#testOperator').text(data.test_operator || '-');
-        $('#testDate').text(data.test_date || '-');
-        
         // 高级分析数据
         $('#d10').text(data.d10 ? data.d10.toFixed(4) : '-');
         $('#d90').text(data.d90 ? data.d90.toFixed(4) : '-');

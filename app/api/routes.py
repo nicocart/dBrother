@@ -78,11 +78,6 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
                 "d1_5": result.d1_5,
                 "volume_1_5D": result.volume_1_5D,
                 "greater_than_1_5D": result.greater_than_1_5D,
-                # 新增样品信息字段
-                "sample_name": result.sample_name,
-                "instrument_model": result.instrument_model,
-                "test_operator": result.test_operator,
-                "test_date": result.test_date,
                 "nldft_data": [
                     {"average_pore_diameter": row.average_pore_diameter, 
                      "pore_integral_volume": row.pore_integral_volume}
