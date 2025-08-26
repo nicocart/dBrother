@@ -61,6 +61,9 @@
                                 <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">基本数据</button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="sample-tab" data-bs-toggle="tab" data-bs-target="#sample" type="button" role="tab">样品信息</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab">高级分析</button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -105,6 +108,36 @@
                                         <div class="data-item">
                                             <div class="data-label">D90/D10比值</div>
                                             <div class="data-value" id="d90d10Ratio">-</div>
+                                            <div class="data-unit"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 样品信息标签页 -->
+                            <div class="tab-pane fade" id="sample" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">样品名称</div>
+                                            <div class="data-value" id="sampleName">-</div>
+                                            <div class="data-unit"></div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">仪器型号</div>
+                                            <div class="data-value" id="instrumentModel">-</div>
+                                            <div class="data-unit"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="data-item">
+                                            <div class="data-label">测试人员</div>
+                                            <div class="data-value" id="testOperator">-</div>
+                                            <div class="data-unit"></div>
+                                        </div>
+                                        <div class="data-item">
+                                            <div class="data-label">送检日期</div>
+                                            <div class="data-value" id="testDate">-</div>
                                             <div class="data-unit"></div>
                                         </div>
                                     </div>
@@ -239,6 +272,7 @@
                             <li>交互式数据可视化</li>
                             <li>响应式设计，支持移动端</li>
                             <li>CSV数据导出功能</li>
+                            <li>隐私保护，文件处理完后即销毁</li>
                         </ul>
 
                         <h5>版本信息</h5>

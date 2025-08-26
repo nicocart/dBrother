@@ -38,6 +38,11 @@ class ProcessResult:
     d1_5: float = 0.0  # 1.5D（最可几孔径×1.5）
     volume_1_5D: float = 0.0  # 1.5D对应的体积
     greater_than_1_5D: float = 0.0  # ＞1.5D的百分比
+    # 新增样品信息字段
+    sample_name: str = ""  # 样品名称
+    instrument_model: str = ""  # 仪器型号
+    test_operator: str = ""  # 测试人员
+    test_date: str = ""  # 送检日期
 
     def __post_init__(self):
         if self.nldft_data is None:
@@ -129,6 +134,123 @@ def extract_surface_area_map(text: str) -> Dict[str, str]:
         if i < len(labels):
             out[labels[i]] = v
     return out
+
+
+def extract_sample_info(text: str) -> Dict[str, str]:
+    """
+    提取样品信息：样品名称、仪器型号、测试人员、送检日期
+    """
+    info = {
+        "sample_name": "",
+        "instrument_model": "",
+        "test_operator": "",
+        "test_date": ""
+    }
+    
+    # 提取样品名称 - 通常在报告开头
+    sample_patterns = [
+        r"样品名称[：:]\s*([^\n\r]+)",
+        r"样品[：:]\s*([^\n\r]+)",
+        r"Sample[：:]\s*([^\n\r]+)",
+        r"Sample Name[：:]\s*([^\n\r]+)"
+    ]
+    
+    for pattern in sample_patterns:
+        match = re.search(pattern, text)
+        if match:
+            info["sample_name"] = match.group(1).strip()
+            break
+    
+    # 提取仪器型号
+    instrument_patterns = [
+        r"仪器型号[：:]\s*([^\n\r]+)",
+        r"设备型号[：:]\s*([^\n\r]+)",
+        r"Instrument[：:]\s*([^\n\r]+)",
+        r"Model[：:]\s*([^\n\r]+)"
+    ]
+    
+    for pattern in instrument_patterns:
+        match = re.search(pattern, text)
+        if match:
+            info["instrument_model"] = match.group(1).strip()
+            break
+    
+    # 提取测试人员
+    operator_patterns = [
+        r"测试人员[：:]\s*([^\n\r]+)",
+        r"操作员[：:]\s*([^\n\r]+)",
+        r"Operator[：:]\s*([^\n\r]+)",
+        r"Tested by[：:]\s*([^\n\r]+)"
+    ]
+    
+    for pattern in operator_patterns:
+        match = re.search(pattern, text)
+        if match:
+            info["test_operator"] = match.group(1).strip()
+            break
+    
+    # 提取送检日期
+    date_patterns = [
+        r"送检日期[：:]\s*([^\n\r]+)",
+        r"测试日期[：:]\s*([^\n\r]+)",
+        r"Date[：:]\s*([^\n\r]+)",
+        r"Test Date[：:]\s*([^\n\r]+)",
+        r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)"  # 匹配日期格式
+    ]
+    
+    for pattern in date_patterns:
+        match = re.search(pattern, text)
+        if match:
+            info["test_date"] = match.group(1).strip()
+            break
+    
+    return info
+
+
+def extract_most_probable_near_nldft(text: str) -> str:
+    """
+    优先提取靠近NLDFT数据的"最可几孔径"值
+    """
+    # 首先找到NLDFT相关区域
+    nldft_sections = []
+    
+    # 查找NLDFT相关的关键词位置
+    nldft_keywords = ["NLDFT详细数据", "NLDFT", "Non-local Density Functional Theory"]
+    
+    for keyword in nldft_keywords:
+        pos = text.find(keyword)
+        if pos != -1:
+            nldft_sections.append(pos)
+    
+    if not nldft_sections:
+        # 如果没有找到NLDFT，使用原来的方法
+        return extract_value_near(text, "最可几孔径", r"nm", 1000)
+    
+    # 在NLDFT区域附近查找最可几孔径
+    most_probable_pattern = re.compile(r"最可几孔径[：:]\s*([+-]?\d[\d,]*\.?\d*(?:[eE][+-]?\d+)?)\s*\(nm\)")
+    
+    best_match = None
+    min_distance = float('inf')
+    
+    for nldft_pos in nldft_sections:
+        # 在NLDFT位置前后2000字符范围内查找
+        start = max(0, nldft_pos - 2000)
+        end = min(len(text), nldft_pos + 2000)
+        section = text[start:end]
+        
+        for match in most_probable_pattern.finditer(section):
+            match_pos = start + match.start()
+            distance = abs(match_pos - nldft_pos)
+            
+            if distance < min_distance:
+                min_distance = distance
+                best_match = match.group(1).replace(",", "")
+    
+    if best_match:
+        return best_match
+    
+    # 如果没找到，使用原来的方法作为备选
+    return extract_value_near(text, "最可几孔径", r"nm", 1000)
 
 
 # ---------- NLDFT 表解析 ----------
@@ -257,6 +379,9 @@ def process_pdf(pdf_path: str) -> ProcessResult:
         if not text.strip():
             return ProcessResult(success=False, error_message="无法从PDF中提取文本内容")
         
+        # 提取样品信息
+        sample_info = extract_sample_info(text)
+        
         # 表面积（按节内顺序映射）
         sa_map = extract_surface_area_map(text)
         
@@ -266,7 +391,7 @@ def process_pdf(pdf_path: str) -> ProcessResult:
         # 其它标量（就近取）
         total_pore_vol = extract_value_near(text, "最高单点吸附总孔体积", r"cm\^3/g", 1000)
         avg_pore_d = extract_value_near(text, "单点总孔吸附平均孔直径", r"nm", 1000)
-        most_probable = extract_value_near(text, "最可几孔径", r"nm", 1000)
+        most_probable = extract_most_probable_near_nldft(text)
 
         # NLDFT 表
         nldft = parse_nldft_pairs(text)
@@ -334,7 +459,11 @@ def process_pdf(pdf_path: str) -> ProcessResult:
             less_than_0_5D=less_than_0_5D,
             d1_5=d1_5,
             volume_1_5D=volume_1_5D,
-            greater_than_1_5D=greater_than_1_5D
+            greater_than_1_5D=greater_than_1_5D,
+            sample_name=sample_info["sample_name"],
+            instrument_model=sample_info["instrument_model"],
+            test_operator=sample_info["test_operator"],
+            test_date=sample_info["test_date"]
         )
 
     except Exception as e:
