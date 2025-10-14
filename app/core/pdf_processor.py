@@ -176,42 +176,20 @@ def parse_nldft_pairs(text: str) -> List[NldftData]:
       [孔径范围 -> 平均孔径 -> 孔微分体积 -> 孔积分体积 -> (可选)吸附量]
     的顺序分组抽取，得到 (平均孔径, 孔积分体积) 列表。
     注意：PDF 文本是"单元格逐行"，中间夹杂空行，需逐个跳过空白。
-    
-    改进：
-    1. 支持多种开始标记格式（容忍中文被空格打散）
-    2. 添加结束标记检测（避免提前截断）
-    3. 支持多种连字符（-, –, —）以应对不同PDF编码
     """
-    # 改进的开始标记正则：同时支持 NLDFT详细数据 和 详细数据NLDFT（容忍中文被空格打散）
-    start_pattern = re.compile(
-        r"(?:NLDFT\s*详\s*细\s*数\s*据|NLDFT\s*详细数据|详\s*细\s*数\s*据\s*NLDFT|详细数据\s*NLDFT)"
-    )
+    lines = text.splitlines()
     
-    # 结束标记正则：以"吸附详细测试数据"作为结束刀口
-    end_pattern = re.compile(
-        r"(?:吸\s*附\s*详\s*细\s*测\s*试\s*数\s*据|吸附\s*详细测试数据|V-?Sorb|www\.ultmetrics\.com)"
-    )
-    
-    # 查找NLDFT块的起点和终点
-    start_match = start_pattern.search(text)
-    if not start_match:
+    # 起点
+    start_idx = None
+    for i, line in enumerate(lines):
+        if "NLDFT详细数据" in line:
+            start_idx = i
+            break
+    if start_idx is None:
         return []
-    
-    start_pos = start_match.end()
-    text_after_start = text[start_pos:]
-    
-    # 查找结束位置
-    end_match = end_pattern.search(text_after_start)
-    if end_match:
-        nldft_block = text_after_start[:end_match.start()]
-    else:
-        nldft_block = text_after_start
-    
-    lines = nldft_block.splitlines()
 
     float_re = re.compile(r"^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$")
-    # 改进的范围正则：支持多种连字符（-, –, —）
-    range_re = re.compile(r"^\d+(?:\.\d+)?[-–—]\d+(?:\.\d+)?$")
+    range_re = re.compile(r"^\d+(?:\.\d+)?-\d+(?:\.\d+)?$")
 
     def next_nonempty(idx: int) -> int:
         while idx < len(lines) and lines[idx].strip() == "":
@@ -219,7 +197,7 @@ def parse_nldft_pairs(text: str) -> List[NldftData]:
         return idx
 
     data: List[NldftData] = []
-    i = 0  # 从提取的nldft_block开始，而不是start_idx
+    i = start_idx
     while i < len(lines):
         s = lines[i].strip()
         if range_re.match(s):
