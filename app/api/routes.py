@@ -8,7 +8,7 @@ import time
 from dotenv import load_dotenv
 from typing import Optional
 
-from app.core.pdf_processor import process_pdf
+from app.core.pdf_processor_v2 import process_pdf
 
 # 加载环境变量
 load_dotenv()
