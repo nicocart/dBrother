@@ -115,6 +115,7 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
                 "total_pore_vol": result.total_pore_vol,
                 "avg_pore_d": result.avg_pore_d,
                 "most_probable": result.most_probable,
+                "raw_text": result.raw_text,
                 "d10": result.d10,
                 "d90": result.d90,
                 "d90_d10_ratio": result.d90_d10_ratio,

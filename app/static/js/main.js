@@ -50,6 +50,9 @@ $(document).ready(function() {
     const resultCard = $('#resultCard');
     const loadingOverlay = $('#loadingOverlay');
     const downloadCsvBtn = $('#downloadCsvBtn');
+    const copyRawBtn = $('#copyRawBtn');
+    const downloadRawBtn = $('#downloadRawBtn');
+    const rawTextContent = $('#rawTextContent');
     
     // 检查关键DOM元素是否存在
     console.log('DOM元素检查:');
@@ -59,10 +62,17 @@ $(document).ready(function() {
     console.log('errorAlert:', errorAlert.length > 0 ? '找到' : '未找到');
     console.log('resultCard:', resultCard.length > 0 ? '找到' : '未找到');
     console.log('loadingOverlay:', loadingOverlay.length > 0 ? '找到' : '未找到');
+    console.log('copyRawBtn:', copyRawBtn.length > 0 ? '找到' : '未找到');
+    console.log('downloadRawBtn:', downloadRawBtn.length > 0 ? '找到' : '未找到');
+    console.log('rawTextContent:', rawTextContent.length > 0 ? '找到' : '未找到');
     
     // 全局变量
     let analysisData = null;
     let chart = null;
+
+    // 初始化原始文本按钮状态
+    copyRawBtn.prop('disabled', true);
+    downloadRawBtn.prop('disabled', true);
     
     // 拖放文件处理
     uploadArea.on('dragover', function(e) {
@@ -226,6 +236,10 @@ $(document).ready(function() {
         resultCard.addClass('d-none');
         uploadProgress.addClass('d-none');
         fileInput.val('');
+        analysisData = null;
+        rawTextContent.text('上传PDF后将在此显示原始文本');
+        copyRawBtn.prop('disabled', true);
+        downloadRawBtn.prop('disabled', true);
     }
     
     // 显示分析结果
@@ -245,6 +259,18 @@ $(document).ready(function() {
         $('#d05').text(data.d0_5 ? data.d0_5.toFixed(4) : '-');
         $('#lessThan05D').text(data.less_than_0_5D ? data.less_than_0_5D.toFixed(2) : '-');
         $('#greaterThan15D').text(data.greater_than_1_5D ? data.greater_than_1_5D.toFixed(2) : '-');
+
+        if (rawTextContent.length > 0) {
+            if (data.raw_text) {
+                rawTextContent.text(data.raw_text);
+                copyRawBtn.prop('disabled', false);
+                downloadRawBtn.prop('disabled', false);
+            } else {
+                rawTextContent.text('没有可用的原始文本。');
+                copyRawBtn.prop('disabled', true);
+                downloadRawBtn.prop('disabled', true);
+            }
+        }
         
         // 填充表格数据
         const tableBody = $('#nldftTableBody');
@@ -372,7 +398,7 @@ $(document).ready(function() {
         if (!analysisData || !analysisData.nldft_data || analysisData.nldft_data.length === 0) {
             return;
         }
-        
+
         // 创建CSV内容
         let csvContent = "data:text/csv;charset=utf-8,";
         csvContent += "average_pore_diameter_nm,pore_integral_volume_cm3_per_g_STP\n";
@@ -390,9 +416,74 @@ $(document).ready(function() {
         
         // 触发下载
         link.click();
-        
+
         // 清理
         document.body.removeChild(link);
+    });
+
+    copyRawBtn.on('click', function() {
+        if (!analysisData || !analysisData.raw_text) {
+            return;
+        }
+
+        const textToCopy = analysisData.raw_text;
+        const originalHtml = copyRawBtn.html();
+
+        const showCopiedIndicator = () => {
+            copyRawBtn.html('<i class="bi bi-check2-circle"></i> 已复制');
+            copyRawBtn.prop('disabled', true);
+            setTimeout(() => {
+                copyRawBtn.html(originalHtml);
+                copyRawBtn.prop('disabled', false);
+            }, 1500);
+        };
+
+        const fallbackCopy = () => {
+            const tempTextarea = $('<textarea>').val(textToCopy).css({
+                position: 'fixed',
+                top: '-9999px',
+                left: '-9999px'
+            });
+            $('body').append(tempTextarea);
+            tempTextarea[0].select();
+            try {
+                const copied = document.execCommand('copy');
+                if (copied) {
+                    showCopiedIndicator();
+                }
+            } catch (err) {
+                console.error('复制原始文本失败:', err);
+            } finally {
+                tempTextarea.remove();
+            }
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy)
+                .then(showCopiedIndicator)
+                .catch(err => {
+                    console.error('使用Clipboard API复制失败:', err);
+                    fallbackCopy();
+                });
+        } else {
+            fallbackCopy();
+        }
+    });
+
+    downloadRawBtn.on('click', function() {
+        if (!analysisData || !analysisData.raw_text) {
+            return;
+        }
+
+        const blob = new Blob([analysisData.raw_text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'raw_text.txt';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     });
 });
 

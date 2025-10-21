@@ -78,6 +78,23 @@ body {
     width: 100%;
 }
 
+.raw-text-container {
+    background-color: #fff;
+    border: 1px solid #e1e5eb;
+    border-radius: 8px;
+    padding: 15px;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.raw-text-content {
+    margin: 0;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* 加载遮罩 */
 .loading-overlay {
     position: fixed;

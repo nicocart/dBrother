@@ -19,7 +19,7 @@ class NldftData:
 
 @dataclass
 class ProcessResult:
-    """处理结果数据类"""
+    """处理结果数据"""
     success: bool
     error_message: str = ""
     sp_bet: str = ""
@@ -27,6 +27,7 @@ class ProcessResult:
     total_pore_vol: str = ""
     avg_pore_d: str = ""
     most_probable: str = ""
+    raw_text: str = ""
     nldft_data: List[NldftData] = None
     d10_int: float = 0.0
     d10: float = 0.0
@@ -40,7 +41,6 @@ class ProcessResult:
     d1_5: float = 0.0           # 1.5D（最可几孔径×1.5）
     volume_1_5D: float = 0.0    # 1.5D对应的体积
     greater_than_1_5D: float = 0.0  # ＞1.5D的百分比
-
 
 # ---------- 基础工具 ----------
 
@@ -399,6 +399,7 @@ def process_pdf(pdf_path: str) -> ProcessResult:
             total_pore_vol=total_pore_vol,
             avg_pore_d=avg_pore_d,
             most_probable=most_probable,
+            raw_text=text,
             nldft_data=nldft,
             d10_int=d10_int,
             d10=d10,

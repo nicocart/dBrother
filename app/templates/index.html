@@ -69,6 +69,9 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">原始数据</button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="raw-text-tab" data-bs-toggle="tab" data-bs-target="#raw-text" type="button" role="tab">原始文本</button>
+                            </li>
                         </ul>
                         <div class="tab-content p-3" id="resultTabsContent">
                             <!-- 基本数据标签页 -->
@@ -178,6 +181,19 @@
                                     <button class="btn btn-outline-primary" id="downloadCsvBtn">
                                         <i class="bi bi-download"></i> 下载CSV
                                     </button>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="raw-text" role="tabpanel" aria-labelledby="raw-text-tab">
+                                <div class="d-flex justify-content-end gap-2 mb-3">
+                                    <button class="btn btn-outline-secondary btn-sm" id="copyRawBtn">
+                                        <i class="bi bi-clipboard-check"></i> 复制文本
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" id="downloadRawBtn">
+                                        <i class="bi bi-download"></i> 下载TXT
+                                    </button>
+                                </div>
+                                <div class="raw-text-container">
+                                    <pre class="raw-text-content" id="rawTextContent">上传PDF后将在此显示原始文本</pre>
                                 </div>
                             </div>
                         </div>
