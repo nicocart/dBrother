@@ -3,10 +3,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import shutil
 from dotenv import load_dotenv
 
 from app.api.routes import router as api_router
+from app.api.routes_structured import router as structured_router
 
 # 加载环境变量
 load_dotenv()
@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 # 包含API路由
 app.include_router(api_router, prefix="/api")
+app.include_router(structured_router, prefix="/api")
 
 # 创建临时目录
 temp_dir = os.getenv("TEMP_DIR", "tmp")
@@ -61,6 +62,11 @@ async def shutdown_event():
 @app.get("/")
 async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/structured")
+async def structured(request: Request):
+    return templates.TemplateResponse("structured.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

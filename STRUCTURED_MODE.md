@@ -18,6 +18,8 @@
 uvicorn app.main_structured:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+> 现在默认的 `app.main:app` 已集成结构化通道，运行现有 `run.py` 或 `uvicorn app.main:app` 也可以直接访问 `/structured`。若希望完全隔离测试，仍可按上述命令启动 `app.main_structured:app`。
+
 访问 `http://localhost:8000/structured` 可进入全新前端页面。旧地址 `/` 仍然提供原有上传与正则解析能力。
 
 ## API 说明
@@ -37,7 +39,7 @@ uvicorn app.main_structured:app --host 0.0.0.0 --port 8000 --reload
 4. 在 `NLDFT` 详细表中提取 `(平均孔径, 孔积分体积)` 列表。
 5. 计算 D10/D90、孔容 A 以及 0.5D / 1.5D 对应的体积分布。
 
-若 PDF 中未检测到表格或关键字段，将返回错误信息并提示回退到原始通道。
+若未安装 `pdfplumber` 或 PDF 中未检测到表格/关键字段，将返回错误信息并提示回退到原始通道。
 
 ## 统计与清理
 
@@ -49,4 +51,3 @@ uvicorn app.main_structured:app --host 0.0.0.0 --port 8000 --reload
 - 引入任务队列，分别跑正则与表格两套解析并对比结果差异。
 - 针对典型报告整理回归样例，配合 `pytest` 做端到端验证。
 - 评估 `pymupdf` 方案，作为性能优化的潜在替换。
-

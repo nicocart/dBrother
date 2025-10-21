@@ -3,7 +3,10 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-import pdfplumber
+try:
+    import pdfplumber  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    pdfplumber = None
 
 from app.core.pdf_processor_v2 import (
     NldftData,
@@ -107,6 +110,8 @@ def extract_number(value: Optional[str]) -> Optional[str]:
 
 
 def collect_tables(pdf_path: str) -> List[ExtractedTable]:
+    if pdfplumber is None:
+        raise RuntimeError("缺少 pdfplumber 依赖，请先安装后再使用结构化解析通道")
     tables: List[ExtractedTable] = []
     with pdfplumber.open(pdf_path) as pdf:
         for page_index, page in enumerate(pdf.pages):
