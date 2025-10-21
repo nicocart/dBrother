@@ -1,7 +1,6 @@
 fastapi==0.116.1
 uvicorn==0.35.0
 python-multipart==0.0.20
-pdfminer.six==20250506
 pdfplumber==0.11.7
 python-dotenv==1.1.1
 aiofiles==24.1.0

@@ -1,14 +1,13 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-import os
-import shutil
-import uuid
 import json
+import os
 import time
-from dotenv import load_dotenv
-from typing import Optional
+import uuid
 
-from app.core.pdf_processor_v2 import process_pdf
+from dotenv import load_dotenv
+
+from app.core.pdf_structured_extractor import process_pdf_structured
 
 # 加载环境变量
 load_dotenv()
@@ -87,7 +86,7 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
             f.write(contents)
         
         # 处理PDF文件
-        result = process_pdf(file_path)
+        result = process_pdf_structured(file_path)
         
         # 计算CPU使用时间
         end_time = time.time()
@@ -127,9 +126,11 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
                 "volume_1_5D": result.volume_1_5D,
                 "greater_than_1_5D": result.greater_than_1_5D,
                 "nldft_data": [
-                    {"average_pore_diameter": row.average_pore_diameter, 
-                     "pore_integral_volume": row.pore_integral_volume}
-                    for row in result.nldft_data[:100]  # 限制返回数量，避免响应过大
+                    {
+                        "average_pore_diameter": row.average_pore_diameter,
+                        "pore_integral_volume": row.pore_integral_volume,
+                    }
+                    for row in result.nldft_data[:200]
                 ]
             },
             "total_analysis_count": total_analysis_count,

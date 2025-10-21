@@ -1,6 +1,7 @@
+import math
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 try:
@@ -8,12 +9,36 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     pdfplumber = None
 
-from app.core.pdf_processor_v2 import (
-    NldftData,
-    ProcessResult,
-    interpolate_diameter,
-    interpolate_volume,
-)
+
+@dataclass
+class NldftData:
+    average_pore_diameter: float
+    pore_integral_volume: float
+
+
+@dataclass
+class ProcessResult:
+    success: bool
+    error_message: str = ""
+    sp_bet: str = ""
+    mp_bet: str = ""
+    total_pore_vol: str = ""
+    avg_pore_d: str = ""
+    most_probable: str = ""
+    raw_text: str = ""
+    nldft_data: List[NldftData] = field(default_factory=list)
+    d10_int: float = 0.0
+    d10: float = 0.0
+    d90_int: float = 0.0
+    d90: float = 0.0
+    d90_d10_ratio: float = 0.0
+    pore_volume_A: float = 0.0
+    d0_5: float = 0.0
+    volume_0_5D: float = 0.0
+    less_than_0_5D: float = 0.0
+    d1_5: float = 0.0
+    volume_1_5D: float = 0.0
+    greater_than_1_5D: float = 0.0
 
 
 @dataclass
@@ -321,6 +346,48 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
 
     aggregated_rows.sort(key=lambda r: (r.pore_integral_volume, r.average_pore_diameter))
     return aggregated_rows
+
+
+def interpolate_diameter(target_volume: float, data: List[NldftData]) -> float:
+    if not data:
+        return 0.0
+    lower: Optional[NldftData] = None
+    for row in data:
+        if math.isclose(row.pore_integral_volume, target_volume, rel_tol=1e-12, abs_tol=1e-15):
+            return row.average_pore_diameter
+        if row.pore_integral_volume < target_volume:
+            lower = row
+        elif row.pore_integral_volume > target_volume:
+            if lower is None:
+                return row.average_pore_diameter
+            dx = row.pore_integral_volume - lower.pore_integral_volume
+            if dx == 0:
+                return lower.average_pore_diameter
+            k = (row.average_pore_diameter - lower.average_pore_diameter) / dx
+            b = lower.average_pore_diameter - k * lower.pore_integral_volume
+            return k * target_volume + b
+    return data[-1].average_pore_diameter
+
+
+def interpolate_volume(target_diameter: float, data: List[NldftData]) -> float:
+    if not data:
+        return 0.0
+    lower: Optional[NldftData] = None
+    for row in data:
+        if math.isclose(row.average_pore_diameter, target_diameter, rel_tol=1e-12, abs_tol=1e-15):
+            return row.pore_integral_volume
+        if row.average_pore_diameter < target_diameter:
+            lower = row
+        elif row.average_pore_diameter > target_diameter:
+            if lower is None:
+                return row.pore_integral_volume
+            dx = row.average_pore_diameter - lower.average_pore_diameter
+            if dx == 0:
+                return lower.pore_integral_volume
+            k = (row.pore_integral_volume - lower.pore_integral_volume) / dx
+            b = lower.pore_integral_volume - k * lower.average_pore_diameter
+            return k * target_diameter + b
+    return data[-1].pore_integral_volume
 
 
 def extract_raw_text(pdf_path: str) -> str:
