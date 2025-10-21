@@ -109,8 +109,8 @@ async def analyze_pdf_structured(background_tasks: BackgroundTasks, file: Upload
                 "greater_than_1_5D": result.greater_than_1_5D,
                 "nldft_data": [
                     {
-                        "average_pore_diameter": row.average_pore_diameter,
-                        "pore_integral_volume": row.pore_integral_volume,
+                        "average_pore_diameter": f"{row.average_pore_diameter:.4f}",
+                        "pore_integral_volume": f"{row.pore_integral_volume:.6f}",
                     }
                     for row in result.nldft_data[:200]
                 ],

@@ -44,6 +44,19 @@ MISC_LABELS: Dict[str, Sequence[str]] = {
     "most_probable": ("最可几孔径", "modal pore width", "mode pore width"),
 }
 
+NLDFT_AVG_KEYWORDS = (
+    "平均孔直径",
+    "平均孔径",
+    "average pore diameter",
+    "average pore width",
+    "avg pore diameter",
+)
+NLDFT_INTEGRAL_KEYWORDS = (
+    "孔积分体积",
+    "pore integral volume",
+    "integral pore volume",
+)
+
 
 def normalize_text(value: Optional[str]) -> str:
     if not value:
@@ -206,31 +219,88 @@ def extract_value_by_label(tables: Sequence[ExtractedTable], key: str) -> Option
 
 
 def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
-    nldft_rows: List[NldftData] = []
+    def contains_keywords(text: str, keywords: Sequence[str]) -> bool:
+        lowered = text.lower()
+        return any(keyword.lower() in lowered for keyword in keywords)
+
+    def is_data_row(row: Sequence[str]) -> bool:
+        numeric_hits = 0
+        first_is_number = False
+        for idx, cell in enumerate(row):
+            token = extract_number(cell)
+            if token:
+                numeric_hits += 1
+                if idx == 0:
+                    first_is_number = True
+        return numeric_hits >= 2 and first_is_number
+
     for table in tables:
-        if not table.rows:
+        rows = table.rows
+        if not rows:
             continue
-        header = [cell.lower() for cell in table.rows[0]]
-        header_joined = " ".join(header)
-        if "p/p0" not in header_joined:
+
+        preview_text = " ".join(" ".join(row) for row in rows[:3]).lower()
+        if "nldft" not in preview_text and "p/p0" not in preview_text:
             continue
-        if "平均" not in header_joined and "average" not in header_joined:
+
+        data_start_idx: Optional[int] = None
+        for idx, row in enumerate(rows):
+            if is_data_row(row):
+                data_start_idx = idx
+                break
+        if data_start_idx is None:
             continue
-        for row in table.rows[1:]:
-            if len(row) < 5:
+
+        header_rows = rows[:data_start_idx] or rows[:1]
+        max_cols = max(len(row) for row in rows)
+        column_headers: Dict[int, str] = {}
+        for col in range(max_cols):
+            parts: List[str] = []
+            for header_row in header_rows:
+                if col < len(header_row):
+                    cell = normalize_cell(header_row[col])
+                    if cell:
+                        parts.append(cell)
+            column_headers[col] = " ".join(parts)
+
+        avg_col: Optional[int] = None
+        integral_col: Optional[int] = None
+        for col, text in column_headers.items():
+            if not text:
                 continue
-            avg = extract_number(row[2])
-            integral = extract_number(row[4])
-            if avg is None or integral is None:
+            if avg_col is None and contains_keywords(text, NLDFT_AVG_KEYWORDS):
+                avg_col = col
+            if integral_col is None and contains_keywords(text, NLDFT_INTEGRAL_KEYWORDS):
+                integral_col = col
+
+        if avg_col is None or integral_col is None:
+            continue
+
+        nldft_rows: List[NldftData] = []
+        for row in rows[data_start_idx:]:
+            if avg_col >= len(row) or integral_col >= len(row):
+                continue
+            avg_str = extract_number(row[avg_col])
+            integral_str = extract_number(row[integral_col])
+            if not avg_str or not integral_str:
                 continue
             try:
-                avg_val = float(avg)
-                integral_val = float(integral)
+                avg_val = round(float(avg_str), 4)
+                integral_val = round(float(integral_str), 6)
             except ValueError:
                 continue
-            nldft_rows.append(NldftData(average_pore_diameter=avg_val, pore_integral_volume=integral_val))
-    nldft_rows.sort(key=lambda r: r.pore_integral_volume)
-    return nldft_rows
+            nldft_rows.append(
+                NldftData(
+                    average_pore_diameter=avg_val,
+                    pore_integral_volume=integral_val,
+                )
+            )
+
+        if nldft_rows:
+            nldft_rows.sort(key=lambda r: r.pore_integral_volume)
+            return nldft_rows
+
+    return []
 
 
 def extract_raw_text(pdf_path: str) -> str:
