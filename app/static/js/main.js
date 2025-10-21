@@ -155,8 +155,8 @@ $(document).ready(function() {
         
         currentFileName = file.name;
 
-        // 重置UI状态
-        resetUI();
+        // 重置UI状态（保留文件名以便展示）
+        resetUI(false);
         
         // 显示进度条
         uploadProgress.removeClass('d-none');
@@ -250,13 +250,15 @@ $(document).ready(function() {
     }
     
     // 重置UI状态
-    function resetUI() {
+    function resetUI(clearFileName = true) {
         errorAlert.addClass('d-none');
         resultCard.addClass('d-none');
         uploadProgress.addClass('d-none');
         fileInput.val('');
         analysisData = null;
-        currentFileName = '';
+        if (clearFileName) {
+            currentFileName = '';
+        }
         rawTextContent.text('上传PDF后将在此显示原始文本');
         copyRawBtn.prop('disabled', true);
         downloadRawBtn.prop('disabled', true);
