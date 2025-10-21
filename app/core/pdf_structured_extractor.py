@@ -220,8 +220,11 @@ def extract_value_by_label(tables: Sequence[ExtractedTable], key: str) -> Option
 
 def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
     def contains_keywords(text: str, keywords: Sequence[str]) -> bool:
-        lowered = text.lower()
-        return any(keyword.lower() in lowered for keyword in keywords)
+        cleaned = re.sub(r"\s+", "", text.lower())
+        for keyword in keywords:
+            if re.sub(r"\s+", "", keyword.lower()) in cleaned:
+                return True
+        return False
 
     def is_data_row(row: Sequence[str]) -> bool:
         numeric_hits = 0
@@ -233,6 +236,8 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
                 if idx == 0:
                     first_is_number = True
         return numeric_hits >= 2 and first_is_number
+
+    aggregated_rows: List[NldftData] = []
 
     for table in tables:
         rows = table.rows
@@ -276,7 +281,6 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
         if avg_col is None or integral_col is None:
             continue
 
-        nldft_rows: List[NldftData] = []
         for row in rows[data_start_idx:]:
             if avg_col >= len(row) or integral_col >= len(row):
                 continue
@@ -289,18 +293,18 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
                 integral_val = round(float(integral_str), 6)
             except ValueError:
                 continue
-            nldft_rows.append(
+            aggregated_rows.append(
                 NldftData(
                     average_pore_diameter=avg_val,
                     pore_integral_volume=integral_val,
                 )
             )
 
-        if nldft_rows:
-            nldft_rows.sort(key=lambda r: r.pore_integral_volume)
-            return nldft_rows
+    if not aggregated_rows:
+        return []
 
-    return []
+    aggregated_rows.sort(key=lambda r: (r.pore_integral_volume, r.average_pore_diameter))
+    return aggregated_rows
 
 
 def extract_raw_text(pdf_path: str) -> str:
