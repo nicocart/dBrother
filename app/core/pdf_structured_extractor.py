@@ -57,6 +57,8 @@ NLDFT_INTEGRAL_KEYWORDS = (
     "integral pore volume",
 )
 
+AVG_DECIMAL_PATTERN = re.compile(r"^[+-]?\d+\.\d{4}$")
+
 
 def normalize_text(value: Optional[str]) -> str:
     if not value:
@@ -288,8 +290,13 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
             integral_str = extract_number(row[integral_col])
             if not avg_str or not integral_str:
                 continue
+            avg_clean = avg_str.replace(",", "")
+            if not AVG_DECIMAL_PATTERN.fullmatch(avg_clean):
+                continue
             try:
-                avg_val = round(float(avg_str), 4)
+                avg_val = float(avg_clean)
+                if abs(avg_val) < 1e-12:
+                    continue
                 integral_val = round(float(integral_str), 6)
             except ValueError:
                 continue
@@ -302,6 +309,15 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
 
     if not aggregated_rows:
         return []
+
+    # 检查平均孔径是否严格升序，若出现降序则认定解析异常
+    prev = aggregated_rows[0].average_pore_diameter
+    for idx, item in enumerate(aggregated_rows[1:], start=2):
+        if item.average_pore_diameter < prev - 1e-8:
+            raise ValueError(
+                f"NLDFT平均孔径序列出现降序（第{idx}条 {item.average_pore_diameter:.4f} < 前一条 {prev:.4f}），请检查表格解析结果"
+            )
+        prev = item.average_pore_diameter
 
     aggregated_rows.sort(key=lambda r: (r.pore_integral_volume, r.average_pore_diameter))
     return aggregated_rows
