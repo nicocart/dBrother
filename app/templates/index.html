@@ -32,11 +32,11 @@
                             <div class="upload-icon">
                                 <i class="bi bi-file-earmark-pdf fs-1"></i>
                             </div>
-                            <h3>拖放文件到此处</h3>
-                            <p>或者</p>
+                            <h3>拖放 PDF 到此处</h3>
+                            <p>或</p>
                             <label for="fileInput" class="btn btn-primary">选择文件</label>
                             <input type="file" id="fileInput" accept=".pdf" style="display: none;">
-                            <p class="text-muted mt-2">最大文件大小: 2MB</p>
+                            <p class="text-muted mt-2">最大文件大小：2 MB</p>
                         </div>
 
                         <div class="progress mt-3 d-none" id="uploadProgress">
@@ -229,7 +229,7 @@
                         </div>
 
                         <h5>项目简介</h5>
-                        <p>dBrother 是一个专业的PDF孔径分析工具，能够自动提取和分析孔径分布数据。该工具采用先进的文本解析技术，从PDF报告中准确提取关键参数，并生成直观的可视化图表。</p>
+                        <p>dBrother 是一个专业的 PDF 孔径分析工具，围绕实验报告实现全结构化抽取与可视化展示。最新版利用 pdfplumber 的表格定位能力直接读取原始数据，辅以多段插值与异常检测，确保分析结果更稳定、可追溯。</p>
                         
                         <div class="author-info">
                             <h5>作者信息</h5>
@@ -250,17 +250,23 @@
 
                         <h5>技术特性</h5>
                         <ul>
-                            <li>智能PDF文本解析</li>
-                            <li>自动数据提取和验证</li>
-                            <li>交互式数据可视化</li>
-                            <li>响应式设计，支持移动端</li>
-                            <li>CSV数据导出功能</li>
-                            <li>隐私保护，文件处理完后即销毁</li>
+                            <li>基于 pdfplumber 的表格/字段结构化解析</li>
+                            <li>多指标自动计算（D10/D90、孔容分段等）</li>
+                            <li>交互式图表与原始数据导出</li>
+                            <li>响应式布局，支持移动端体验</li>
+                            <li>解析过程校验与错误提示</li>
+                            <li>隐私保护：文件处理后立即清理</li>
                         </ul>
 
                         <h5>版本信息</h5>
-                        <p><strong>当前版本：</strong>1.0.0</p>
-                        <p><strong>最后更新：</strong>2025年8月26日</p>
+                        <p><strong>当前版本：</strong>1.1.0</p>
+                        <p><strong>最后更新：</strong>2025年10月21日</p>
+
+                        <h5>更新日志</h5>
+                        <ul>
+                            <li><strong>1.1.0</strong>（2025-10-21）引入 pdfplumber 表格解析、统一结构化通道，重塑全站 UI 与异常校验。</li>
+                            <li><strong>1.0.0</strong>（2025-08-26）首个公开版本，提供正则提取与基础可视化。</li>
+                        </ul>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
