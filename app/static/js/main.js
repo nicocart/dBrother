@@ -53,6 +53,8 @@ $(document).ready(function() {
     const copyRawBtn = $('#copyRawBtn');
     const downloadRawBtn = $('#downloadRawBtn');
     const rawTextContent = $('#rawTextContent');
+    const analysisMeta = $('#analysisMeta');
+    const currentFileNameEl = $('#currentFileName');
     
     // 检查关键DOM元素是否存在
     console.log('DOM元素检查:');
@@ -65,10 +67,12 @@ $(document).ready(function() {
     console.log('copyRawBtn:', copyRawBtn.length > 0 ? '找到' : '未找到');
     console.log('downloadRawBtn:', downloadRawBtn.length > 0 ? '找到' : '未找到');
     console.log('rawTextContent:', rawTextContent.length > 0 ? '找到' : '未找到');
+    console.log('analysisMeta:', analysisMeta.length > 0 ? '找到' : '未找到');
     
     // 全局变量
     let analysisData = null;
     let chart = null;
+    let currentFileName = '';
 
     // 初始化原始文本按钮状态
     copyRawBtn.prop('disabled', true);
@@ -149,6 +153,8 @@ $(document).ready(function() {
             return;
         }
         
+        currentFileName = file.name;
+
         // 重置UI状态
         resetUI();
         
@@ -192,6 +198,14 @@ $(document).ready(function() {
                 if (response.success) {
                     // 保存数据
                     analysisData = response.data;
+
+                    // 更新文件名展示
+                    currentFileNameEl.text(currentFileName || '-');
+                    if (currentFileName) {
+                        analysisMeta.removeClass('d-none');
+                    } else {
+                        analysisMeta.addClass('d-none');
+                    }
                     
                     // 显示结果
                     displayResults(analysisData);
@@ -218,6 +232,8 @@ $(document).ready(function() {
                     console.error('解析错误响应失败', e);
                 }
                 
+                analysisMeta.addClass('d-none');
+                currentFileNameEl.text('-');
                 showError(errorMsg);
             }
         });
@@ -228,6 +244,9 @@ $(document).ready(function() {
         errorMessage.text(message);
         errorAlert.removeClass('d-none');
         uploadProgress.addClass('d-none');
+        analysisMeta.addClass('d-none');
+        currentFileNameEl.text('-');
+        currentFileName = '';
     }
     
     // 重置UI状态
@@ -237,9 +256,12 @@ $(document).ready(function() {
         uploadProgress.addClass('d-none');
         fileInput.val('');
         analysisData = null;
+        currentFileName = '';
         rawTextContent.text('上传PDF后将在此显示原始文本');
         copyRawBtn.prop('disabled', true);
         downloadRawBtn.prop('disabled', true);
+        analysisMeta.addClass('d-none');
+        currentFileNameEl.text('-');
     }
     
     // 显示分析结果
