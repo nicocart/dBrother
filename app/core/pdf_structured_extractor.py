@@ -1,6 +1,7 @@
 import math
 import re
 import unicodedata
+from functools import lru_cache
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -50,6 +51,7 @@ class ExtractedTable:
 
 
 NUM_RE = re.compile(r"[+-]?\d[\d,]*\.?\d*(?:[eE][+-]?\d+)?")
+SPACE_RE = re.compile(r"\s+")
 
 # 目标标签（中文优先，英文作为回退）
 SURFACE_LABELS: Dict[str, Sequence[str]] = {
@@ -69,6 +71,37 @@ MISC_LABELS: Dict[str, Sequence[str]] = {
     "most_probable": ("最可几孔径", "modal pore width", "mode pore width"),
 }
 
+def _lower_label_map(label_map: Dict[str, Sequence[str]]) -> Dict[str, Tuple[str, ...]]:
+    return {key: tuple(label.lower() for label in labels if label) for key, labels in label_map.items()}
+
+
+SURFACE_LABELS_LOWER = _lower_label_map(SURFACE_LABELS)
+PORE_VOLUME_LABELS_LOWER = _lower_label_map(PORE_VOLUME_LABELS)
+PORE_SIZE_LABELS_LOWER = _lower_label_map(PORE_SIZE_LABELS)
+MISC_LABELS_LOWER = _lower_label_map(MISC_LABELS)
+
+SECTION_LABELS = {
+    "surface area": SURFACE_LABELS_LOWER,
+    "pore volume": PORE_VOLUME_LABELS_LOWER,
+    "pore size": PORE_SIZE_LABELS_LOWER,
+}
+SECTION_KEYWORDS = tuple(SECTION_LABELS.keys())
+
+_PREFILTER_SOURCES = (SURFACE_LABELS, PORE_VOLUME_LABELS, PORE_SIZE_LABELS, MISC_LABELS)
+_prefilter_keywords = {"surface area", "pore volume", "pore size", "bet", "nldft", "p/p0"}
+for _label_map in _PREFILTER_SOURCES:
+    for _labels in _label_map.values():
+        for _label in _labels:
+            if _label:
+                _prefilter_keywords.add(_label)
+PREFILTER_KEYWORDS = tuple(_prefilter_keywords)
+PREFILTER_KEYWORDS_LOWER = tuple(keyword.lower() for keyword in PREFILTER_KEYWORDS if keyword)
+PREFILTER_KEYWORDS_COMPACT = tuple(
+    SPACE_RE.sub("", keyword) for keyword in PREFILTER_KEYWORDS_LOWER if keyword
+)
+
+TABLE_SETTINGS = {"vertical_strategy": "lines", "horizontal_strategy": "lines"}
+
 NLDFT_AVG_KEYWORDS = (
     "平均孔直径",
     "平均孔径",
@@ -81,13 +114,18 @@ NLDFT_INTEGRAL_KEYWORDS = (
     "pore integral volume",
     "integral pore volume",
 )
+NLDFT_AVG_KEYWORDS_CLEAN = tuple(SPACE_RE.sub("", keyword.lower()) for keyword in NLDFT_AVG_KEYWORDS)
+NLDFT_INTEGRAL_KEYWORDS_CLEAN = tuple(SPACE_RE.sub("", keyword.lower()) for keyword in NLDFT_INTEGRAL_KEYWORDS)
 
 AVG_DECIMAL_PATTERN = re.compile(r"^[+-]?\d+\.\d{4}$")
 
 
+@lru_cache(maxsize=4096)
 def normalize_text(value: Optional[str]) -> str:
     if not value:
         return ""
+    if value.isascii():
+        return value.replace("\u0000", "").strip()
     text = unicodedata.normalize("NFKC", value)
     return text.replace("\u0000", "").strip()
 
@@ -96,7 +134,7 @@ def normalize_cell(cell: Optional[str]) -> str:
     return normalize_text(cell).replace("\r\n", "\n").replace("\r", "\n")
 
 
-def label_variants(cell: Optional[str]) -> Iterable[str]:
+def label_variants_lower(cell: Optional[str]) -> Iterable[str]:
     text = normalize_cell(cell)
     if not text:
         return []
@@ -106,42 +144,42 @@ def label_variants(cell: Optional[str]) -> Iterable[str]:
     for line in lines:
         if not line:
             continue
-        yield line
         yield line.lower()
 
 
-def label_match_score(cell: Optional[str], targets: Sequence[str]) -> int:
+def label_match_score(cell: Optional[str], targets_lower: Sequence[str]) -> int:
     if not cell:
         return 0
-    lowered_targets = [t.lower() for t in targets]
     best = 0
-    for variant in label_variants(cell):
-        v_lower = variant.lower()
-        for target in lowered_targets:
+    for variant_lower in label_variants_lower(cell):
+        for target in targets_lower:
             if not target:
                 continue
-            if v_lower == target:
+            if variant_lower == target:
                 return 3
-            if v_lower.endswith(target):
+            if variant_lower.endswith(target):
                 best = max(best, 2)
-            elif target in v_lower:
+            elif target in variant_lower:
                 best = max(best, 1)
     return best
 
 
-def label_matches(cell: Optional[str], targets: Sequence[str]) -> bool:
-    lowered_targets = [t.lower() for t in targets]
-    for variant in label_variants(cell):
-        v_lower = variant.lower()
-        for target in lowered_targets:
-            if target in v_lower:
+def label_matches(cell: Optional[str], targets_lower: Sequence[str]) -> bool:
+    for variant_lower in label_variants_lower(cell):
+        for target in targets_lower:
+            if not target:
+                continue
+            if target in variant_lower:
                 return True
     return False
 
 
+@lru_cache(maxsize=8192)
 def extract_number(value: Optional[str]) -> Optional[str]:
     text = normalize_cell(value)
     if not text:
+        return None
+    if not any(ch.isdigit() for ch in text):
         return None
     match = NUM_RE.search(text.replace(",", ""))
     if not match:
@@ -149,60 +187,86 @@ def extract_number(value: Optional[str]) -> Optional[str]:
     return match.group(0)
 
 
-def collect_tables(pdf_path: str) -> List[ExtractedTable]:
+def _page_has_keywords(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    for keyword in PREFILTER_KEYWORDS_LOWER:
+        if keyword and keyword in lowered:
+            return True
+    compact = SPACE_RE.sub("", lowered)
+    for keyword in PREFILTER_KEYWORDS_COMPACT:
+        if keyword and keyword in compact:
+            return True
+    return False
+
+
+def _extract_tables_from_page(page, page_index: int) -> List[ExtractedTable]:
+    try:
+        table_objs = page.find_tables(TABLE_SETTINGS)
+    except Exception:
+        table_objs = page.find_tables()
+    if not table_objs:
+        return []
+    tables: List[ExtractedTable] = []
+    for table_index, table in enumerate(table_objs):
+        data = table.extract()
+        normalized_rows: List[List[str]] = [
+            [normalize_cell(cell) for cell in row] for row in data if any(cell for cell in row)
+        ]
+        if not normalized_rows:
+            continue
+        tables.append(
+            ExtractedTable(
+                page_index=page_index,
+                table_index=table_index,
+                bbox=table.bbox,
+                rows=normalized_rows,
+            )
+        )
+    return tables
+
+
+def collect_tables(
+    pdf_path: str,
+    prefilter: bool = True,
+    collect_text: bool = True,
+) -> Tuple[List[ExtractedTable], str]:
     if pdfplumber is None:
         raise RuntimeError("缺少 pdfplumber 依赖，请先安装后再使用结构化解析通道")
     tables: List[ExtractedTable] = []
+    segments: List[str] = []
+    if prefilter and not collect_text:
+        prefilter = False
     with pdfplumber.open(pdf_path) as pdf:
-        for page_index, page in enumerate(pdf.pages):
-            try:
-                table_objs = page.find_tables({"vertical_strategy": "lines", "horizontal_strategy": "lines"})
-            except Exception:
-                table_objs = page.find_tables()
-            if not table_objs:
-                continue
-            for table_index, table in enumerate(table_objs):
-                data = table.extract()
-                normalized_rows: List[List[str]] = [
-                    [normalize_cell(cell) for cell in row] for row in data if any(cell for cell in row)
-                ]
-                if not normalized_rows:
-                    continue
-                tables.append(
-                    ExtractedTable(
-                        page_index=page_index,
-                        table_index=table_index,
-                        bbox=table.bbox,
-                        rows=normalized_rows,
-                    )
-                )
-    return tables
+        pages = list(pdf.pages)
+        for page_index, page in enumerate(pages):
+            text = (page.extract_text() or "") if collect_text else ""
+            if collect_text:
+                segments.append(text)
+            if not prefilter or _page_has_keywords(text):
+                tables.extend(_extract_tables_from_page(page, page_index))
+    return tables, "\n".join(segments)
 
 
 def extract_summary_metrics(tables: Sequence[ExtractedTable]) -> Dict[str, str]:
     metrics: Dict[str, str] = {}
-    sections = {
-        "surface area": SURFACE_LABELS,
-        "pore volume": PORE_VOLUME_LABELS,
-        "pore size": PORE_SIZE_LABELS,
-    }
-
     for table in tables:
         joined_header = " ".join(" ".join(row) for row in table.rows[:2]).lower()
-        if not any(keyword in joined_header for keyword in sections):
+        if not any(keyword in joined_header for keyword in SECTION_KEYWORDS):
             continue
 
         current_section: Optional[str] = None
         for row in table.rows:
             row_joined = " ".join(row).lower()
-            for section_name in sections:
+            for section_name in SECTION_KEYWORDS:
                 if section_name in row_joined:
                     current_section = section_name
                     break
             if current_section is None:
                 continue
             # 只在存在数值列时尝试解析
-            target_labels = sections[current_section]
+            target_labels = SECTION_LABELS[current_section]
             for key, candidates in target_labels.items():
                 if key in metrics:
                     continue
@@ -222,7 +286,7 @@ def extract_summary_metrics(tables: Sequence[ExtractedTable]) -> Dict[str, str]:
 
 
 def extract_value_by_label(tables: Sequence[ExtractedTable], key: str) -> Optional[str]:
-    candidates = MISC_LABELS.get(key)
+    candidates = MISC_LABELS_LOWER.get(key)
     if not candidates:
         return None
     best_key: Tuple[int, int, int] = (0, -1, -1)
@@ -247,9 +311,9 @@ def extract_value_by_label(tables: Sequence[ExtractedTable], key: str) -> Option
 
 def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
     def contains_keywords(text: str, keywords: Sequence[str]) -> bool:
-        cleaned = re.sub(r"\s+", "", text.lower())
+        cleaned = SPACE_RE.sub("", text.lower())
         for keyword in keywords:
-            if re.sub(r"\s+", "", keyword.lower()) in cleaned:
+            if keyword in cleaned:
                 return True
         return False
 
@@ -300,9 +364,9 @@ def extract_nldft_data(tables: Sequence[ExtractedTable]) -> List[NldftData]:
         for col, text in column_headers.items():
             if not text:
                 continue
-            if avg_col is None and contains_keywords(text, NLDFT_AVG_KEYWORDS):
+            if avg_col is None and contains_keywords(text, NLDFT_AVG_KEYWORDS_CLEAN):
                 avg_col = col
-            if integral_col is None and contains_keywords(text, NLDFT_INTEGRAL_KEYWORDS):
+            if integral_col is None and contains_keywords(text, NLDFT_INTEGRAL_KEYWORDS_CLEAN):
                 integral_col = col
 
         if avg_col is None or integral_col is None:
@@ -401,16 +465,32 @@ def extract_raw_text(pdf_path: str) -> str:
 
 def process_pdf_structured(pdf_path: str) -> ProcessResult:
     try:
-        tables = collect_tables(pdf_path)
+        tables, raw_text = collect_tables(pdf_path, prefilter=True, collect_text=True)
     except Exception as exc:  # pragma: no cover - pdf解析异常直接报错
         return ProcessResult(success=False, error_message=f"结构化解析失败：{exc}")
 
-    if not tables:
-        return ProcessResult(success=False, error_message="未检测到任何表格结构")
-
     summary = extract_summary_metrics(tables)
     most_probable = extract_value_by_label(tables, "most_probable") or ""
-    nldft_data = extract_nldft_data(tables)
+    nldft_error = False
+    try:
+        nldft_data = extract_nldft_data(tables)
+    except ValueError:
+        nldft_error = True
+        nldft_data = []
+
+    if not tables or not nldft_data or not summary.get("total_pore_vol") or nldft_error:
+        try:
+            fallback_tables, _ = collect_tables(pdf_path, prefilter=False, collect_text=False)
+        except Exception as exc:  # pragma: no cover - pdf解析异常直接报错
+            return ProcessResult(success=False, error_message=f"结构化解析失败：{exc}")
+        if fallback_tables:
+            tables = fallback_tables
+            summary = extract_summary_metrics(tables)
+            most_probable = extract_value_by_label(tables, "most_probable") or ""
+            nldft_data = extract_nldft_data(tables)
+
+    if not tables:
+        return ProcessResult(success=False, error_message="未检测到任何表格结构")
 
     if not nldft_data:
         return ProcessResult(success=False, error_message="未提取到NLDFT详细数据")
@@ -446,7 +526,6 @@ def process_pdf_structured(pdf_path: str) -> ProcessResult:
         except ValueError:
             pass
 
-    raw_text = extract_raw_text(pdf_path)
     return ProcessResult(
         success=True,
         sp_bet=summary.get("sp_bet", ""),

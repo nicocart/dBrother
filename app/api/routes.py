@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -32,7 +33,7 @@ def load_stats():
         return {
             "total_analysis_count": 0,
             "cpu_time_seconds": 0,
-            "last_updated": time.strftime("%Y-%m-%d %H:%M:%S.%f")
+            "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         }
 
 # 保存统计信息
@@ -47,7 +48,7 @@ def save_stats(stats):
 def update_cpu_time(additional_seconds):
     stats = load_stats()
     stats["cpu_time_seconds"] = stats.get("cpu_time_seconds", 0) + additional_seconds
-    stats["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S.%f")
+    stats["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     save_stats(stats)
 
 # 清理临时文件
@@ -66,14 +67,6 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="只接受PDF文件")
     
-    # 检查文件大小
-    file_size = 0
-    contents = await file.read()
-    file_size = len(contents)
-    
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail=f"文件大小超过限制（最大{MAX_FILE_SIZE/1024/1024:.1f}MB）")
-    
     # 保存文件到临时目录
     file_id = str(uuid.uuid4())
     file_path = os.path.join(TEMP_DIR, f"{file_id}.pdf")
@@ -82,8 +75,16 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
     start_time = time.time()
     
     try:
+        size = 0
         with open(file_path, "wb") as f:
-            f.write(contents)
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_FILE_SIZE:
+                    raise HTTPException(status_code=400, detail=f"文件大小超过限制（最大{MAX_FILE_SIZE/1024/1024:.1f}MB）")
+                f.write(chunk)
         
         # 处理PDF文件
         result = process_pdf_structured(file_path)
@@ -137,9 +138,12 @@ async def analyze_pdf(background_tasks: BackgroundTasks, file: UploadFile = File
             "cpu_time_seconds": cpu_time
         }
     
+    except HTTPException:
+        remove_file(file_path)
+        raise
     except Exception as e:
         # 确保出错时也删除临时文件
-        background_tasks.add_task(remove_file, file_path)
+        remove_file(file_path)
         raise HTTPException(status_code=500, detail=f"处理文件时出错: {str(e)}")
 
 @router.get("/stats")
